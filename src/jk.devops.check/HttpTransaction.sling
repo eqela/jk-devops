@@ -1,0 +1,162 @@
+
+/*
+ * This file is part of Jkop
+ * Copyright (c) 2020-2021 J42 Pte Ltd
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+import jk.log
+import jk.url
+import jk.time
+import jk.http.client
+
+class:
+
+func forGet(url as string) static as this
+{
+	var v = new this()
+	v.setMethod("GET")
+	v.setUrl(url)
+	return v
+}
+
+func forPost(url as string) static as this
+{
+	var v = new this()
+	v.setMethod("POST")
+	v.setUrl(url)
+	return v
+}
+
+pvar method = "GET"
+pvar url as string
+pvar headers as KeyValueList<string,string>
+pvar body as buffer
+
+func getRedirectedUrl(original as string, location as string) private as string
+{
+	if String.isEmpty(location):
+		return original
+	if not original:
+		return location
+	if String.startsWith(location, "http://") || String.startsWith(location, "https://"):
+		return location
+	var url = URL.forString(original)
+	if String.startsWith(location, "/") {
+		url.setPath(location)
+	}
+	else {
+		var pp = url.getPath()
+		if String.endsWith(pp, "/") {
+			pp = pp .. location
+		}
+		else {
+			var ls = String.getLastIndexOfCharacter(pp, '/')
+			if ls < 0 {
+				pp = location
+			}
+			else {
+				pp = String.getSubString(pp, 0, ls+1) .. location
+			}
+		}
+		url.setPath(pp)
+	}
+	return url.toString()
+}
+
+func toResultHeaders(headers as KeyValueList<string,string>) private as vector<HttpTransactionResultHeader>
+{
+	var v = new vector<HttpTransactionResultHeader>
+	if headers {
+		var it = headers.iterate()
+		while it {
+			var pair = it.next()
+			if not pair:
+				break
+			var h = new HttpTransactionResultHeader()
+			h.setName(pair.key)
+			h.setValue(pair.value)
+			v += h
+		}
+	}
+	return v
+}
+
+func execute(ctx as LoggingContext) as HttpTransactionResult
+{
+	var wc = new CustomWebClient()
+	var ss as string
+	var hh as KeyValueList<string,string>
+	var bb as buffer
+	var n = 0
+	var urls = getUrl()
+	var start = SystemClock.asTimeValue()
+	var trlen = 0L
+	loop {
+		if n > 10 {
+			Log.error(ctx, "Exceeded 10 redirects. Giving up.")
+			ss = null
+			hh = null
+			bb = null
+			break
+		}
+		Log.status(ctx, "Fetching URL: `" .. urls .. "' .. ")
+		var trstart = SystemClock.asTimeValue()
+		wc.query(getMethod(), urls, getHeaders(), getBody(), func(status as string, headers as KeyValueList<string,string>, body as buffer) {
+			trlen = TimeValue.diff(SystemClock.asTimeValue(), trstart)
+			ss = status
+			hh = headers
+			bb = body
+		})
+		Log.status(ctx, null)
+		if String.getLength(ss) == 3 && String.startsWith(ss, "3") {
+			if not hh:
+				break
+			var location as string
+			var it = hh.iterate()
+			while it {
+				var pp = it.next()
+				if not pp:
+					break
+				if String.equalsIgnoreCase(pp.key, "location") {
+					location = getRedirectedUrl(urls, pp.value)
+					break
+				}
+			}
+			if not location:
+				break
+			urls = location
+			n++
+		}
+		else {
+			break
+		}
+	}
+	var v = new HttpTransactionResult()
+	v.setUrl(getUrl())
+	v.setFinalUrl(urls)
+	v.setStatus(ss)
+	v.setHeaders(toResultHeaders(hh))
+	v.setBody(bb)
+	v.setRedirectCountValue(n)
+	v.setFinalRequestTimeValue(trlen as int)
+	v.setTotalRequestTimeValue(TimeValue.diff(SystemClock.asTimeValue(), start) as int)
+	return v
+}

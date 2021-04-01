@@ -1,0 +1,14 @@
+{
+	vendorId "eqela"
+	projectId "jk-devops"
+	title "JK Devops"
+	description [[
+		Common functionality used for DevOps, software development, compiling, system administration and
+		other software management and operational tasks.
+	]]
+	libraries [
+		"jk-core:0.37.0"
+		"jk-data:0.33.0"
+		"jk-cloud:0.16.0"
+	]
+}
