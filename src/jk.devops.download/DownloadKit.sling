@@ -60,6 +60,13 @@ func downloadToDirectory(url as dynamic, destdir as dynamic) as File
 	return downloadToFile(urls, destdirf.entry(name))
 }
 
+class QueryValues private
+{
+	var ss public as string
+	var hh public as KeyValueList<string,string>
+	var bb public as buffer
+}
+
 func downloadToFile(url as dynamic, destfile as dynamic) as File
 {
 	var urls = String.asString(url)
@@ -74,23 +81,21 @@ func downloadToFile(url as dynamic, destfile as dynamic) as File
 		return destfilef
 	}
 	var wc = new CustomWebClient()
-	var ss as string
-	var hh as KeyValueList<string,string>
-	var bb as buffer
+	var o = new QueryValues()
 	var n = 1
 	loop {
 		Log.status(ctx, "Downloading: `" .. getBasename(ourls) .. "' (" .. String.forInteger(n++) .. ").. ")
 		wc.query("GET", urls, null, null, func(status as string, headers as KeyValueList<string,string>, body as buffer) {
-			ss = status
-			hh = headers
-			bb = body
+			o.ss = status
+			o.hh = headers
+			o.bb = body
 		})
 		Log.status(ctx, null)
-		if ss == "301" || ss == "302" {
-			if not hh:
+		if o.ss == "301" || o.ss == "302" {
+			if not o.hh:
 				break
 			var location as string
-			var it = hh.iterate()
+			var it = o.hh.iterate()
 			while it {
 				var pp = it.next()
 				if not pp:
@@ -108,11 +113,11 @@ func downloadToFile(url as dynamic, destfile as dynamic) as File
 			break
 		}
 	}
-	if ss != "200":
-		Error.throw("httpError", ss)
-	if not bb:
+	if o.ss != "200":
+		Error.throw("httpError", o.ss)
+	if not o.bb:
 		Error.throw("noContent", null)
-	new FileKit(ctx).writeBuffer(destfilef, bb)
+	new FileKit(ctx).writeBuffer(destfilef, o.bb)
 	return destfilef
 }
 

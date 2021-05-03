@@ -211,6 +211,31 @@ func pull(workdir as dynamic)
 	}
 }
 
+func getCurrentCommitHash(workdir as dynamic) as string
+{
+	if workdir == null:
+		Error.throw("missingParameter", "Git:getCurrentCommitHash:workdir")
+	var dir = asWorkdir(workdir)
+	if not dir:
+		Error.throw("invalidParameter", "Git:getCurrentCommitHash:workdir")
+	var pl = getProcessLauncher()
+	pl.setCwd(dir)
+	pl.addToParams("rev-parse")
+	pl.addToParams("HEAD")
+	Log.debug(ctx, String.asString(pl))
+	var sb = new StringBuilder()
+	var v = pl.executeToStringBuilder(sb)
+	var str = sb.toString()
+	if v != 0 {
+		Log.error(ctx, "Git output: `" .. str .. "'")
+		Error.throw("failedToGetCurrentCommitHash", dir)
+	}
+	str = String.strip(str)
+	if String.isEmpty(str):
+		Error.throw("emptyCommitHash", workdir)
+	return str
+}
+
 func isRepositoryUrlAccessible(repoUrl as dynamic) as bool
 {
 	var url = String.asString(repoUrl)

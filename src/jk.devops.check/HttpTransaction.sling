@@ -99,38 +99,43 @@ func toResultHeaders(headers as KeyValueList<string,string>) private as vector<H
 	return v
 }
 
+class QueryValues private
+{
+	var ss public as string
+	var hh public as KeyValueList<string,string>
+	var bb public as buffer
+	var trlen public as long
+}
+
 func execute(ctx as LoggingContext) as HttpTransactionResult
 {
 	var wc = new CustomWebClient()
-	var ss as string
-	var hh as KeyValueList<string,string>
-	var bb as buffer
+	var o = new QueryValues()
 	var n = 0
 	var urls = getUrl()
 	var start = SystemClock.asTimeValue()
-	var trlen = 0L
 	loop {
 		if n > 10 {
 			Log.error(ctx, "Exceeded 10 redirects. Giving up.")
-			ss = null
-			hh = null
-			bb = null
+			o.ss = null
+			o.hh = null
+			o.bb = null
 			break
 		}
 		Log.status(ctx, "Fetching URL: `" .. urls .. "' .. ")
 		var trstart = SystemClock.asTimeValue()
 		wc.query(getMethod(), urls, getHeaders(), getBody(), func(status as string, headers as KeyValueList<string,string>, body as buffer) {
-			trlen = TimeValue.diff(SystemClock.asTimeValue(), trstart)
-			ss = status
-			hh = headers
-			bb = body
+			o.trlen = TimeValue.diff(SystemClock.asTimeValue(), trstart)
+			o.ss = status
+			o.hh = headers
+			o.bb = body
 		})
 		Log.status(ctx, null)
-		if String.getLength(ss) == 3 && String.startsWith(ss, "3") {
-			if not hh:
+		if String.getLength(o.ss) == 3 && String.startsWith(o.ss, "3") {
+			if not o.hh:
 				break
 			var location as string
-			var it = hh.iterate()
+			var it = o.hh.iterate()
 			while it {
 				var pp = it.next()
 				if not pp:
@@ -152,11 +157,11 @@ func execute(ctx as LoggingContext) as HttpTransactionResult
 	var v = new HttpTransactionResult()
 	v.setUrl(getUrl())
 	v.setFinalUrl(urls)
-	v.setStatus(ss)
-	v.setHeaders(toResultHeaders(hh))
-	v.setBody(bb)
+	v.setStatus(o.ss)
+	v.setHeaders(toResultHeaders(o.hh))
+	v.setBody(o.bb)
 	v.setRedirectCountValue(n)
-	v.setFinalRequestTimeValue(trlen as int)
+	v.setFinalRequestTimeValue(o.trlen as int)
 	v.setTotalRequestTimeValue(TimeValue.diff(SystemClock.asTimeValue(), start) as int)
 	return v
 }

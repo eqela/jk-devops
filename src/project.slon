@@ -1,5 +1,5 @@
 {
-	vendorId "eqela"
+	namespace "eqela"
 	projectId "jk-devops"
 	title "JK Devops"
 	description [[
@@ -7,8 +7,8 @@
 		other software management and operational tasks.
 	]]
 	libraries [
-		"jk-core:0.37.0"
-		"jk-data:0.33.0"
-		"jk-cloud:0.16.0"
+		"jk-core:0.40.0"
+		"jk-data:0.35.0"
+		"jk-cloud:0.18.0"
 	]
 }

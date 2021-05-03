@@ -48,6 +48,12 @@ func forDirectory(dir as File) static as this
 pvar ctx as LoggingContext
 pvar cacheDirectory as File
 
+class QueryValues private
+{
+	var status public as string
+	var data public as buffer
+}
+
 func downloadVM(version as string, platform as string) as File
 {
 	if not cacheDirectory:
@@ -60,24 +66,23 @@ func downloadVM(version as string, platform as string) as File
 	if cachedir.isDirectory():
 		return cachedir
 	var url = "https://github.com/eqela/sushivm/releases/download/" .. version .. "/sushi_" .. version .. "_" .. platform .. ".zip"
-	var status as string
-	var data as buffer
 	Log.debug(ctx, "Trying to retrieve URL: `" .. url .. "' ..")
 	Log.status(ctx, "[Downloading] " .. url .. " .. ")
 	var client = NativeWebClient.instance()
 	if not client:
 		Error.throw("failedToCreateNativeWebClient", null)
+	var o = new QueryValues()
 	client.query("GET", url, null, null, func(rstatus as string, rheaders as KeyValueList<string,string>, rdata as buffer) {
-		status = rstatus
-		data = rdata
+		o.status = rstatus
+		o.data = rdata
 	})
 	Log.status(ctx, null)
-	if status == "200" && data {
+	if o.status == "200" && o.data {
 		Log.debug(ctx, "Successfully downloaded: `" .. url .. "'")
 		var listener = func(file as File) {
 			Log.status(ctx, "[Installing] " .. file.getPath() .. " .. ")
 		}
-		var r = ZipReader.extractZipBufferToDirectory(data, cachedir, listener)
+		var r = ZipReader.extractZipBufferToDirectory(o.data, cachedir, listener)
 		Log.status(ctx, null)
 		if not r:
 			Error.throw("failedToInstall", "sushi:" .. version .. ":" .. platform)
