@@ -255,3 +255,54 @@ func push(tag as string)
 	pl.addToParams(tag)
 	doSimpleExecute(pl)
 }
+
+func login(username as string, password as string, server as string)
+{
+	if String.isEmpty(username):
+		Error.throw("missingParameter", "Docker:login:username")
+	if String.isEmpty(password):
+		Error.throw("missingParameter", "Docker:login:password")
+	var pl = getProcessLauncher()
+	pl.addToParams("login")
+	pl.addToParams("-u")
+	pl.addToParams(username)
+	pl.addToParams("--password-stdin")
+	pl.addToParams(server)
+	if not pl:
+		return
+	if ctx && ctx.isInDebugMode():
+		Log.debug(ctx, "Executing: `" .. String.asString(pl) .. "'")
+	var pr = pl.startWithIO()
+	if not pr:
+		Error.throw("dockerErrorLoginFailed", null)
+	var wr = pr.getStandardInput()
+	var bp = String.toUTF8Buffer(password)
+	var sz = Buffer.getSize(bp) as int
+	if wr.write(bp, sz) < 1:
+		Error.throw("dockerErrorLoginFailed", "Failed to write password through standard input")
+	var br = pr.getStandardOutput()
+	var er = pr.getStandardError()
+	var bf = malloc 4096
+	var sb = new StringBuilder()
+	readFromReader(br, bf, sb)
+	readFromReader(er, bf, sb)
+	var ss = sb.toString()
+	var es = pr.getExitStatus()
+	if es != 0 {
+		Error.throw("dockerActionFailed", pl)
+	}
+	else if ctx && ctx.isInDebugMode() {
+		Log.debug(ctx, "Docker output: `" .. ss .. "'")
+	}
+}
+
+func readFromReader(reader as Reader, buffer as buffer, builder as StringBuilder) private
+{
+	loop {
+		var r = reader.read(buffer)
+		if r < 1:
+			break
+		var str = assert String.forUTF8Buffer(Buffer.getSubBuffer(buffer, 0, r))
+		builder.appendString(str)
+	}
+}
