@@ -255,3 +255,32 @@ func push(tag as string)
 	pl.addToParams(tag)
 	doSimpleExecute(pl)
 }
+
+func login(username as string, password as string, server as string)
+{
+	if String.isEmpty(username):
+		Error.throw("missingParameter", "Docker:login:username")
+	if String.isEmpty(password):
+		Error.throw("missingParameter", "Docker:login:password")
+	if String.isEmpty(server):
+		Error.throw("missingParameter", "Docker:login:server")
+	var pl = getProcessLauncher()
+	pl.addToParams("login")
+	pl.addToParams("-u")
+	pl.addToParams(username)
+	pl.addToParams("--password")
+	pl.addToParams(password)
+	pl.addToParams(server)
+	doSimpleExecute(pl)
+}
+
+func readFromReader(reader as Reader, buffer as buffer, builder as StringBuilder) private
+{
+	loop {
+		var r = reader.read(buffer)
+		if r < 1:
+			break
+		var str = assert String.forUTF8Buffer(Buffer.getSubBuffer(buffer, 0, r))
+		builder.appendString(str)
+	}
+}
